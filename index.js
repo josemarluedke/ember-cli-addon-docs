@@ -8,9 +8,10 @@ const Funnel = require('broccoli-funnel');
 const EmberApp = require('ember-cli/lib/broccoli/ember-app'); // eslint-disable-line node/no-unpublished-require
 const Plugin = require('broccoli-plugin');
 const walkSync = require('walk-sync');
-const buildTailwind = require('ember-cli-tailwind/lib/build-tailwind');
 
 const LATEST_VERSION_NAME = '-latest';
+const styleDir = path.join( __dirname, 'addon', 'styles');
+
 
 module.exports = {
   name: 'ember-cli-addon-docs',
@@ -18,6 +19,21 @@ module.exports = {
   LATEST_VERSION_NAME,
 
   options: {
+    postcssOptions: {
+
+      compile: {
+        enabled: false,
+      },
+
+      filter: {
+        enabled: true,
+        includePaths: [styleDir],
+        plugins: [
+          require('tailwindcss')(path.join( __dirname, 'addon', 'styles', 'tailwind.js'))
+        ]
+      },
+    },
+
     svgJar: {
       sourceDirs: [
         'public',
@@ -75,10 +91,6 @@ module.exports = {
       'ember-component-css': {
         namespacing: false
       },
-      'ember-cli-tailwind': {
-        shouldIncludeStyleguide: false,
-        shouldBuildTailwind: false
-      }
     };
 
     let updatedConfig = Object.assign({}, baseConfig, config);
@@ -122,7 +134,27 @@ module.exports = {
     }, includer.options.snippetRegexes);
     includer.options.includehighlightJS = false;
     includer.options.includeHighlightStyle = false;
-    includer.options.snippetExtensions = ['js', 'css', 'scss', 'hbs', 'md', 'text', 'json', 'handlebars', 'htmlbars', 'html', 'diff'];
+
+    let snippetExtensions = includer.options.snippetExtensions;
+
+    if (!Array.isArray(includer.options.snippetExtensions)) {
+      snippetExtensions = [
+        'ts',
+        'js',
+        'css',
+        'scss',
+        'hbs',
+        'md',
+        'text',
+        'json',
+        'handlebars',
+        'htmlbars',
+        'html',
+        'diff'
+      ];
+    }
+
+    includer.options.snippetExtensions = snippetExtensions;
 
     // This must come after we add our own options above, or else other addons won't see them.
     this._super.included.apply(this, arguments);
@@ -189,14 +221,6 @@ module.exports = {
     let addonToDocument = this._documentingAddon();
     let addonFiles = new FindAddonFiles([path.join(addonToDocument.root, 'addon')]);
     return this._super(new MergeTrees([ tree, dummyAppFiles, addonFiles ]));
-  },
-
-  treeForAddonStyles(tree) {
-    let trees = tree ? [ tree ] : [];
-
-    trees.push(buildTailwind(this));
-
-    return new MergeTrees(trees);
   },
 
   treeForVendor(vendor) {
